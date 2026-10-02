@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Controlled Smart Blackboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #121212;
+      color: #ffffff;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      background: #1e1e1e;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #333;
+    }
+    .status-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .mic-btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    .mic-btn.active {
+      background: #dc2626;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+    .status-text {
+      font-size: 14px;
+      color: #aaa;
+    }
+    .active-info {
+      display: flex;
+      gap: 15px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .badge {
+      background: #333;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .board-container {
+      flex: 1;
+      position: relative;
+      background-color: #0b1d13; /* Classic Dark Green Blackboard */
+    }
+    canvas {
+      display: block;
+      cursor: crosshair;
+    }
+    .help-panel {
+      position: absolute;
+      bottom: 15px;
+      left: 15px;
+      background: rgba(0, 0, 0, 0.75);
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #ddd;
+      pointer-events: none;
+      border: 1px solid #444;
+    }
+    .help-panel ul {
+      margin-left: 15px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="status-container">
+      <button id="micToggle" class="mic-btn">🎙️ Start Voice Command</button>
+      <span id="statusText" class="status-text">Click to enable voice control</span>
+    </div>
+    
+    <div class="active-info">
+      <div class="badge">Tool: <span id="toolName" style="color: #4ade80;">Pen</span></div>
+      <div class="badge">Color: <span id="colorName" style="color: #ffffff;">White</span></div>
+      <div class="badge">Last Command: <span id="lastCmd" style="color: #facc15;">None</span></div>
+    </div>
+  </header>
+
+  <div class="board-container" id="boardContainer">
+    <canvas id="blackboard"></canvas>
+    <div class="help-panel">
+      <strong>🎙️ Voice Commands (Hindi & English):</strong>
+      <ul>
+        <li><strong>Tools:</strong> "Pen" / "Eraser" / "Clear" (Clear Board)</li>
+        <li><strong>Colors:</strong> "White", "Red", "Blue", "Yellow", "Green"</li>
+        <li><strong>Size:</strong> "Small", "Medium", "Large"</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('blackboard');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('boardContainer');
+
+    const micToggle = document.getElementById('micToggle');
+    const statusText = document.getElementById('statusText');
+    const toolNameDisplay = document.getElementById('toolName');
+    const colorNameDisplay = document.getElementById('colorName');
+    const lastCmdDisplay = document.getElementById('lastCmd');
+
+    // State Variables
+    let isDrawing = false;
+    let currentTool = 'pen'; // 'pen' or 'eraser'
+    let currentColor = '#ffffff';
+    let currentSize = 3;
+    let isListening = false;
+
+    // Resize Canvas to fill screen
+    function resizeCanvas() {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      ctx.putImageData(imageData, 0, 0);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Drawing Logic
+    function startDrawing(e) {
+      isDrawing = true;
+      draw(e);
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+      ctx.beginPath();
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (currentTool === 'eraser') {
+        ctx.strokeStyle = '#0b1d13'; // Blackboard background color
+        ctx.lineWidth = currentSize * 6;
+      } else {
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = currentSize;
+      }
+
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
+
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mousemove', draw);
+
+    // Touch Support for Smartboards / Tablets
+    canvas.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      startDrawing(touch);
+    });
+    canvas.addEventListener('touchend', stopDrawing);
+    canvas.addEventListener('touchmove', (e) => {
+      const touch = e.touches[0];
+      draw(touch);
+    });
+
+    // Voice Recognition Engine Setup
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      statusText.textContent = "Browser does not support Web Speech API (Use Chrome/Edge)";
+      micToggle.disabled = true;
+    } else {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US'; // English and mixed Hindi commands supported
+
+      micToggle.addEventListener('click', () => {
+        if (!isListening) {
+          recognition.start();
+        } else {
+          recognition.stop();
+        }
+      });
+
+      recognition.onstart = () => {
+        isListening = true;
+        micToggle.classList.add('active');
+        micToggle.textContent = '🛑 Stop Listening';
+        statusText.textContent = 'Listening... Speak commands like "Pen", "Blue", "Eraser"';
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        micToggle.classList.remove('active');
+        micToggle.textContent = '🎙️️ Start Voice Command';
+        statusText.textContent = 'Voice control stopped.';
+      };
+
+      recognition.onresult = (event) => {
+        const lastResultIndex = event.results.length - 1;
+        const command = event.results[lastResultIndex][0].transcript.trim().toLowerCase();
+        lastCmdDisplay.textContent = command;
+
+        processCommand(command);
+      };
+
+      function processCommand(cmd) {
+        // Tool Selection
+        if (cmd.includes('pen')) {
+          currentTool = 'pen';
+          toolNameDisplay.textContent = 'Pen';
+        } else if (cmd.includes('eraser') || cmd.includes('erase')) {
+          currentTool = 'eraser';
+          toolNameDisplay.textContent = 'Eraser';
+        } else if (cmd.includes('clear') || cmd.includes('clean') || cmd.includes('reset')) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Color Selection
+        if (cmd.includes('blue')) {
+          currentColor = '#3b82f6';
+          currentTool = 'pen';
+          colorNameDisplay.textContent = 'Blue';
+          toolNameDisplay.textContent = 'Pen';
+        } else if (cmd.includes('red')) {
+          currentColor = '#ef4444';
+          currentTool = 'pen';
+          colorNameDisplay.textContent = 'Red';
+          toolNameDisplay.textContent = 'Pen';
+        } else if (cmd.includes('yellow')) {
+          currentColor = '#facc15';
+          currentTool = 'pen';
+          colorNameDisplay.textContent = 'Yellow';
+          toolNameDisplay.textContent = 'Pen';
+        } else if (cmd.includes('green')) {
+          currentColor = '#22c55e';
+          currentTool = 'pen';
+          colorNameDisplay.textContent = 'Green';
+          toolNameDisplay.textContent = 'Pen';
+        } else if (cmd.includes('white')) {
+          currentColor = '#ffffff';
+          currentTool = 'pen';
+          colorNameDisplay.textContent = 'White';
+          toolNameDisplay.textContent = 'Pen';
+        }
+
+        // Size Control
+        if (cmd.includes('small') || cmd.includes('thin')) {
+          currentSize = 2;
+        } else if (cmd.includes('medium')) {
+          currentSize = 5;
+        } else if (cmd.includes('large') || cmd.includes('thick')) {
+          currentSize = 10;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
